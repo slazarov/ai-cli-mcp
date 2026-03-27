@@ -142,7 +142,7 @@ describe('ai-cli app', () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(waitForProcesses).toHaveBeenCalledWith([123, 456], 5);
+    expect(waitForProcesses).toHaveBeenCalledWith([123, 456], 5, false);
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"status": "completed"'));
   });
 

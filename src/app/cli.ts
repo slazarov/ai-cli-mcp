@@ -44,6 +44,7 @@ Wait for one or more tracked processes to finish.
 
 Options:
   --timeout <seconds>          Maximum wait time in seconds
+  --output-only                Return only the agent output without process metadata
   --help, -h                   Show this help message
 `;
 
@@ -116,7 +117,7 @@ interface CliDeps {
   }) => Promise<any>;
   listProcesses: () => Promise<any>;
   getProcessResult: (pid: number, verbose: boolean, outputOnly: boolean) => Promise<any>;
-  waitForProcesses: (pids: number[], timeoutSeconds?: number) => Promise<any>;
+  waitForProcesses: (pids: number[], timeoutSeconds?: number, outputOnly?: boolean) => Promise<any>;
   killProcess: (pid: number) => Promise<any>;
   cleanupProcesses: () => Promise<any>;
   getDoctorStatus: () => any;
@@ -138,7 +139,7 @@ const defaultDeps: CliDeps = {
   runProcess: (options) => getCliProcessService().startProcess(options),
   listProcesses: () => getCliProcessService().listProcesses(),
   getProcessResult: (pid, verbose, outputOnly) => getCliProcessService().getProcessResult(pid, verbose, outputOnly),
-  waitForProcesses: (pids, timeoutSeconds) => getCliProcessService().waitForProcesses(pids, timeoutSeconds),
+  waitForProcesses: (pids, timeoutSeconds, outputOnly) => getCliProcessService().waitForProcesses(pids, timeoutSeconds, outputOnly),
   killProcess: (pid) => getCliProcessService().killProcess(pid),
   cleanupProcesses: () => getCliProcessService().cleanupProcesses(),
   getDoctorStatus: () => getCliDoctorStatus(),
@@ -318,7 +319,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
       return 1;
     }
 
-    writeJson(stdout, await waitForProcesses(pids as number[], timeout));
+    writeJson(stdout, await waitForProcesses(pids as number[], timeout, 'output-only' in flags));
     return 0;
   }
 

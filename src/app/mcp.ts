@@ -218,6 +218,10 @@ ${getSupportedModelsDescription()}
                 type: 'number',
                 description: 'Optional: Maximum time to wait in seconds. Defaults to 180 (3 minutes).',
               },
+              output_only: {
+                type: 'boolean',
+                description: 'Optional: If true, returns only the agent output for each process without process metadata. Defaults to false.',
+              },
             },
             required: ['pids'],
           },
@@ -337,7 +341,8 @@ ${getSupportedModelsDescription()}
     try {
       const results = await this.processService.waitForProcesses(
         toolArguments.pids,
-        typeof toolArguments.timeout === 'number' ? toolArguments.timeout : 180
+        typeof toolArguments.timeout === 'number' ? toolArguments.timeout : 180,
+        !!toolArguments.output_only
       );
       return {
         content: [{

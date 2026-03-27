@@ -196,7 +196,7 @@ export class ProcessService {
     return response;
   }
 
-  async waitForProcesses(pids: number[], timeoutSeconds = 180): Promise<any[]> {
+  async waitForProcesses(pids: number[], timeoutSeconds = 180, outputOnly = false): Promise<any[]> {
     for (const pid of pids) {
       if (!this.processManager.has(pid)) {
         throw new Error(`Process with PID ${pid} not found`);
@@ -228,7 +228,7 @@ export class ProcessService {
 
     try {
       await Promise.race([Promise.all(waitPromises), timeoutPromise]);
-      return pids.map((pid) => this.getProcessResult(pid, false));
+      return pids.map((pid) => this.getProcessResult(pid, false, outputOnly));
     } finally {
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
