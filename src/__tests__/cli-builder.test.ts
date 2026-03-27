@@ -619,5 +619,108 @@ describe('cli-builder', () => {
         ]);
       });
     });
+
+    describe('binary parameter', () => {
+      const EXTRAS = new Map([
+        ['claude-zhipu', { name: 'claude-zhipu', path: '/usr/local/bin/claude-zhipu', agent: 'claude' as const }],
+        ['codex-alt', { name: 'codex-alt', path: '/usr/local/bin/codex-alt', agent: 'codex' as const }],
+        ['gemini-alt', { name: 'gemini-alt', path: '/usr/local/bin/gemini-alt', agent: 'gemini' as const }],
+      ]);
+
+      it('should use extra binary path when binary param is set', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'sonnet',
+          binary: 'claude-zhipu',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.cliPath).toBe('/usr/local/bin/claude-zhipu');
+        expect(cmd.agent).toBe('claude');
+        expect(cmd.args).toContain('--model');
+        expect(cmd.args).toContain('sonnet');
+      });
+
+      it('should use agent type from binary registration, not model', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          binary: 'codex-alt',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.cliPath).toBe('/usr/local/bin/codex-alt');
+        expect(cmd.agent).toBe('codex');
+        expect(cmd.args).toContain('exec');
+      });
+
+      it('should allow selecting built-in binary by name', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          binary: 'claude',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.cliPath).toBe('/usr/bin/claude');
+        expect(cmd.agent).toBe('claude');
+      });
+
+      it('should throw for unknown binary name', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            binary: 'nonexistent',
+            extraBinaries: EXTRAS,
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('Unknown binary "nonexistent"');
+      });
+
+      it('should list available binaries in error message', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            binary: 'nonexistent',
+            extraBinaries: EXTRAS,
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow(/Available:.*claude.*codex.*gemini.*claude-zhipu/);
+      });
+
+      it('should use default binary when binary param is not set', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'sonnet',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.cliPath).toBe('/usr/bin/claude');
+      });
+
+      it('should use gemini extra binary with gemini CLI args', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          binary: 'gemini-alt',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.cliPath).toBe('/usr/local/bin/gemini-alt');
+        expect(cmd.agent).toBe('gemini');
+        expect(cmd.args).toContain('-y');
+        expect(cmd.args).toContain('--output-format');
+        expect(cmd.args).toContain('json');
+      });
+    });
   });
 });

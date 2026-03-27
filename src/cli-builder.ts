@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve as pathResolve, isAbsolute } from 'node:path';
 import type { CliPaths } from './cli-utils.js';
 import { MODEL_ALIASES } from './model-catalog.js';
+import type { ExtraBinaryEntry } from './cli-utils.js';
 
 export const ALLOWED_REASONING_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const CLAUDE_REASONING_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
@@ -89,7 +90,7 @@ export function resolveModelAlias(model: string): string {
   return MODEL_ALIASES[model] || model;
 }
 
-export function getReasoningEffort(model: string, rawValue: unknown): string {
+export function getReasoningEffort(model: string, rawValue: unknown, agentOverride?: 'claude' | 'codex' | 'gemini'): string {
   if (typeof rawValue !== 'string') {
     return '';
   }
@@ -108,7 +109,7 @@ export function getReasoningEffort(model: string, rawValue: unknown): string {
       `Invalid reasoning_effort: ${rawValue}. Allowed values: low, medium, high, xhigh, max.`
     );
   }
-  const agent = getStandardAgentForModel(model);
+  const agent = agentOverride ?? getStandardAgentForModel(model);
   if (agent === 'forge') {
     throw new Error('reasoning_effort is not supported for forge.');
   }
@@ -147,6 +148,8 @@ export interface BuildCliCommandOptions {
   session_id?: string;
   reasoning_effort?: string;
   cliPaths: CliPaths;
+  binary?: string;
+  extraBinaries?: Map<string, ExtraBinaryEntry>;
 }
 
 export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
@@ -189,8 +192,32 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
     throw new Error(`Working folder does not exist: ${options.workFolder}`);
   }
 
+  let binaryOverridePath: string | undefined;
+  let binaryAgent: 'claude' | 'codex' | 'gemini' | undefined;
+
+  if (options.binary) {
+    const coreBuiltIns = new Set<string>(['claude', 'codex', 'gemini']);
+    if (coreBuiltIns.has(options.binary)) {
+      binaryAgent = options.binary as 'claude' | 'codex' | 'gemini';
+      binaryOverridePath = options.cliPaths[binaryAgent];
+    } else if (options.extraBinaries?.has(options.binary)) {
+      const entry = options.extraBinaries.get(options.binary)!;
+      binaryOverridePath = entry.path;
+      binaryAgent = entry.agent;
+    } else {
+      const available = ['claude', 'codex', 'gemini', 'forge', 'opencode'];
+      if (options.extraBinaries) {
+        for (const name of options.extraBinaries.keys()) {
+          available.push(name);
+        }
+      }
+      throw new Error(`Unknown binary "${options.binary}". Available: ${available.join(', ')}`);
+    }
+  }
+
   const rawModel = options.model || '';
-  const { agent, resolvedModel, openCodeModel } = resolveModelSelection(rawModel);
+  const { agent: modelAgent, resolvedModel, openCodeModel } = resolveModelSelection(rawModel);
+  const agent = binaryAgent ?? modelAgent;
 
   let reasoningEffortArg: string | undefined = options.reasoning_effort;
   if (!reasoningEffortArg) {
@@ -204,13 +231,13 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
   const reasoningTargetModel = rawModel === 'opencode' || rawModel.startsWith('oc-')
     ? rawModel
     : (resolvedModel || rawModel);
-  const reasoningEffort = getReasoningEffort(reasoningTargetModel, reasoningEffortArg);
+  const reasoningEffort = getReasoningEffort(reasoningTargetModel, reasoningEffortArg, binaryAgent);
 
   let cliPath: string;
   let args: string[];
 
   if (agent === 'codex') {
-    cliPath = options.cliPaths.codex;
+    cliPath = binaryOverridePath || options.cliPaths.codex;
 
     if (options.session_id && typeof options.session_id === 'string') {
       args = ['exec', 'resume', options.session_id];
@@ -227,7 +254,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
 
     args.push('--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--json', prompt);
   } else if (agent === 'gemini') {
-    cliPath = options.cliPaths.gemini;
+    cliPath = binaryOverridePath || options.cliPaths.gemini;
     args = ['-y', '--output-format', 'stream-json'];
 
     if (options.session_id && typeof options.session_id === 'string') {
@@ -262,7 +289,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
 
     args.push(prompt);
   } else {
-    cliPath = options.cliPaths.claude;
+    cliPath = binaryOverridePath || options.cliPaths.claude;
     args = ['--dangerously-skip-permissions', '--output-format', 'stream-json', '--verbose'];
 
     if (options.session_id && typeof options.session_id === 'string') {

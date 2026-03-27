@@ -9,7 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { debugLog, getCliDoctorStatus, type CliBinaryStatus } from '../cli-utils.js';
+import { debugLog, getCliDoctorStatus, getExtraBinariesConfig, type CliBinaryStatus, type ExtraBinaryEntry } from '../cli-utils.js';
 import { getModelParameterDescription, getModelsPayload, getSupportedModelsDescription } from '../model-catalog.js';
 import { validatePeekPids, validatePeekTimeSec } from '../peek.js';
 import { ProcessService } from '../process-service.js';
@@ -76,6 +76,7 @@ export class ClaudeCodeServer {
   private geminiCliPath: string;
   private forgeCliPath: string;
   private opencodeCliPath: string;
+  private extraBinaries: Map<string, ExtraBinaryEntry>;
   private processService: ProcessService;
   private sigintHandler?: () => Promise<void>;
 
@@ -86,11 +87,17 @@ export class ClaudeCodeServer {
     this.geminiCliPath = this.resolveDoctorCliPath(doctorStatus.gemini);
     this.forgeCliPath = this.resolveDoctorCliPath(doctorStatus.forge);
     this.opencodeCliPath = this.resolveDoctorCliPath(doctorStatus.opencode);
+    this.extraBinaries = getExtraBinariesConfig();
     console.error(`[Setup] Using Claude CLI command/path: ${this.claudeCliPath}`);
     console.error(`[Setup] Using Codex CLI command/path: ${this.codexCliPath}`);
     console.error(`[Setup] Using Gemini CLI command/path: ${this.geminiCliPath}`);
     console.error(`[Setup] Using Forge CLI command/path: ${this.forgeCliPath}`);
     console.error(`[Setup] Using OpenCode CLI command/path: ${this.opencodeCliPath}`);
+    if (this.extraBinaries.size > 0) {
+      for (const [name, entry] of this.extraBinaries) {
+        console.error(`[Setup] Extra ${entry.agent} binary: ${name} → ${entry.path}`);
+      }
+    }
     this.processService = new ProcessService({
       cliPaths: {
         claude: this.claudeCliPath,
@@ -99,6 +106,7 @@ export class ClaudeCodeServer {
         forge: this.forgeCliPath,
         opencode: this.opencodeCliPath,
       },
+      extraBinaries: this.extraBinaries.size > 0 ? this.extraBinaries : undefined,
     });
 
     this.server = new Server(
@@ -191,6 +199,10 @@ ${getSupportedModelsDescription()}
               session_id: {
                 type: 'string',
                 description: 'Optional session ID to resume a previous session. Supported for Claude, Codex, Gemini, Forge, and OpenCode. OpenCode resumes in-place via --session and may also be combined with explicit oc-<provider/model> selection.',
+              },
+              binary: {
+                type: 'string',
+                description: `Optional: Select which CLI binary to use. Defaults to the built-in binary for the agent type determined by the model. Available: ${this.getAvailableBinariesDescription()}`,
               },
             },
             required: ['workFolder'],
@@ -348,6 +360,14 @@ ${getSupportedModelsDescription()}
     });
   }
 
+  private getAvailableBinariesDescription(): string {
+    const parts = ['claude (default)', 'codex (default)', 'gemini (default)'];
+    for (const [name, entry] of this.extraBinaries) {
+      parts.push(`${name} (${entry.agent})`);
+    }
+    return parts.join(', ');
+  }
+
   private async handleRun(toolArguments: any): Promise<ServerResult> {
     if (isFirstToolUse) {
       console.error(`ai_cli_mcp v${SERVER_VERSION} started at ${serverStartupTime}`);
@@ -367,6 +387,7 @@ ${getSupportedModelsDescription()}
         model: toolArguments.model,
         session_id: toolArguments.session_id,
         reasoning_effort: toolArguments.reasoning_effort,
+        binary: toolArguments.binary,
       });
       return {
         content: [{

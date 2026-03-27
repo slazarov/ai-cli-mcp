@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { buildCliCommand, type BuildCliCommandOptions } from './cli-builder.js';
+import type { ExtraBinaryEntry } from './cli-utils.js';
 import { parseClaudeOutput, parseCodexOutput, parseForgeOutput, parseGeminiOutput, parseOpenCodeOutput, PeekEventExtractor } from './parsers.js';
 import {
   appendPeekEvents,
@@ -21,6 +22,7 @@ interface TrackedProcess {
   prompt: string;
   workFolder: string;
   model?: string;
+  binary?: string;
   toolType: AgentType;
   startTime: string;
   stdout: string;
@@ -32,6 +34,7 @@ interface TrackedProcess {
 export interface ProcessListItem {
   pid: number;
   agent: AgentType;
+  binary?: string;
   status: ProcessStatus;
 }
 
@@ -44,6 +47,7 @@ export interface StartProcessResult {
 
 interface ProcessServiceOptions {
   cliPaths: BuildCliCommandOptions['cliPaths'];
+  extraBinaries?: Map<string, ExtraBinaryEntry>;
 }
 
 function parseAgentOutput(agent: AgentType, stdout: string, stderr: string): any {
@@ -74,15 +78,18 @@ function parseAgentOutput(agent: AgentType, stdout: string, stderr: string): any
 export class ProcessService {
   private readonly processManager = new Map<number, TrackedProcess>();
   private readonly cliPaths: BuildCliCommandOptions['cliPaths'];
+  private readonly extraBinaries?: Map<string, ExtraBinaryEntry>;
 
   constructor(options: ProcessServiceOptions) {
     this.cliPaths = options.cliPaths;
+    this.extraBinaries = options.extraBinaries;
   }
 
-  startProcess(options: Omit<BuildCliCommandOptions, 'cliPaths'>): StartProcessResult {
+  startProcess(options: Omit<BuildCliCommandOptions, 'cliPaths' | 'extraBinaries'>): StartProcessResult {
     const cmd = buildCliCommand({
       ...options,
       cliPaths: this.cliPaths,
+      extraBinaries: this.extraBinaries,
     });
 
     const { cliPath, args: processArgs, cwd: effectiveCwd, agent, prompt } = cmd;
@@ -103,6 +110,7 @@ export class ProcessService {
       prompt,
       workFolder: effectiveCwd,
       model: options.model,
+      binary: options.binary,
       toolType: agent,
       startTime: new Date().toISOString(),
       stdout: '',
@@ -154,11 +162,15 @@ export class ProcessService {
     const processes: ProcessListItem[] = [];
 
     for (const [pid, process] of this.processManager.entries()) {
-      processes.push({
+      const item: ProcessListItem = {
         pid,
         agent: process.toolType,
         status: process.status,
-      });
+      };
+      if (process.binary) {
+        item.binary = process.binary;
+      }
+      processes.push(item);
     }
 
     return processes;
@@ -188,7 +200,7 @@ export class ProcessService {
       return result;
     }
 
-    return buildProcessResult({
+    const result = buildProcessResult({
       pid,
       agent: process.toolType,
       status: process.status,
@@ -200,6 +212,10 @@ export class ProcessService {
       stdout: process.stdout,
       stderr: process.stderr,
     }, agentOutput, verbose);
+    if (process.binary) {
+      result.binary = process.binary;
+    }
+    return result;
   }
 
   async waitForProcesses(pids: number[], timeoutSeconds = 180, verbose = false, outputOnly = false): Promise<any[]> {

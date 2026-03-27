@@ -170,6 +170,91 @@ function isExecutableFile(filePath: string): boolean {
   }
 }
 
+
+export type ExtraBinaryAgent = 'claude' | 'codex' | 'gemini';
+
+export interface ExtraBinaryEntry {
+  name: string;
+  path: string;
+  agent: ExtraBinaryAgent;
+  prefixArgs?: string[];
+}
+
+const BUILT_IN_NAMES = new Set<string>(['claude', 'codex', 'gemini', 'forge', 'opencode']);
+
+export function parseExtraBinaries(
+  envValue: string | undefined,
+  agentType: ExtraBinaryAgent,
+): ExtraBinaryEntry[] {
+  if (!envValue || !envValue.trim()) {
+    return [];
+  }
+
+  const entries: ExtraBinaryEntry[] = [];
+
+  for (const pair of envValue.split(',')) {
+    const trimmed = pair.trim();
+    if (!trimmed) continue;
+
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) {
+      console.error(`[Warning] Malformed extra binary entry (missing ':'): "${trimmed}" — skipping`);
+      continue;
+    }
+
+    const name = trimmed.slice(0, colonIdx).trim();
+    const binaryPath = trimmed.slice(colonIdx + 1).trim();
+
+    if (!name) {
+      console.error(`[Warning] Empty name in extra binary entry: "${trimmed}" — skipping`);
+      continue;
+    }
+
+    if (BUILT_IN_NAMES.has(name)) {
+      console.error(`[Warning] Extra binary name "${name}" conflicts with built-in — skipping`);
+      continue;
+    }
+
+    if (!binaryPath) {
+      console.error(`[Warning] Empty path for extra binary "${name}" — skipping`);
+      continue;
+    }
+
+    const validationError = validateCustomCliName(`EXTRA_${agentType.toUpperCase()}_BINARIES[${name}]`, binaryPath);
+    if (validationError) {
+      console.error(`[Warning] ${validationError} — skipping`);
+      continue;
+    }
+
+    entries.push({ name, path: binaryPath, agent: agentType });
+  }
+
+  return entries;
+}
+
+export function getExtraBinariesConfig(): Map<string, ExtraBinaryEntry> {
+  const result = new Map<string, ExtraBinaryEntry>();
+  const envVars: Array<{ env: string; agent: ExtraBinaryAgent }> = [
+    { env: 'EXTRA_CLAUDE_BINARIES', agent: 'claude' },
+    { env: 'EXTRA_CODEX_BINARIES', agent: 'codex' },
+    { env: 'EXTRA_GEMINI_BINARIES', agent: 'gemini' },
+  ];
+
+  for (const { env, agent } of envVars) {
+    const entries = parseExtraBinaries(process.env[env], agent);
+    for (const entry of entries) {
+      if (result.has(entry.name)) {
+        console.error(`[Warning] Duplicate extra binary name "${entry.name}" — skipping`);
+        continue;
+      }
+      result.set(entry.name, entry);
+    }
+  }
+
+  return result;
+}
+
+
 function getCliBinaryConfig(name: CliBinaryName): {
   envVarName: string;
   customCliName: string | undefined;

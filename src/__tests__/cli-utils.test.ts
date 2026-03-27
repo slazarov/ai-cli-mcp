@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { accessSync } from 'node:fs';
+import { parseExtraBinaries, getExtraBinariesConfig } from '../cli-utils.js';
 
 vi.mock('node:fs', () => ({
   accessSync: vi.fn(),
@@ -202,5 +203,115 @@ describe('cli-utils doctor status', () => {
       lookup: 'env',
     });
     expect(findOpencodeCli()).toBe('opencode-custom');
+  });
+});
+
+describe('parseExtraBinaries', () => {
+  it('parses valid name:path pairs', () => {
+    const result = parseExtraBinaries(
+      'claude-zhipu:/usr/local/bin/claude-zhipu,claude-deepseek:/usr/local/bin/claude-deepseek',
+      'claude'
+    );
+    expect(result).toEqual([
+      { name: 'claude-zhipu', path: '/usr/local/bin/claude-zhipu', agent: 'claude' },
+      { name: 'claude-deepseek', path: '/usr/local/bin/claude-deepseek', agent: 'claude' },
+    ]);
+  });
+
+  it('returns empty array for undefined/empty input', () => {
+    expect(parseExtraBinaries(undefined, 'claude')).toEqual([]);
+    expect(parseExtraBinaries('', 'claude')).toEqual([]);
+    expect(parseExtraBinaries('  ', 'claude')).toEqual([]);
+  });
+
+  it('skips malformed entries without colon', () => {
+    const result = parseExtraBinaries('nocolon', 'claude');
+    expect(result).toEqual([]);
+  });
+
+  it('skips entries with empty name', () => {
+    const result = parseExtraBinaries(':/usr/bin/foo', 'claude');
+    expect(result).toEqual([]);
+  });
+
+  it('skips entries with empty path', () => {
+    const result = parseExtraBinaries('foo:', 'claude');
+    expect(result).toEqual([]);
+  });
+
+  it('rejects built-in name collisions', () => {
+    const result = parseExtraBinaries('claude:/usr/bin/my-claude', 'claude');
+    expect(result).toEqual([]);
+  });
+
+  it('rejects relative paths', () => {
+    const result = parseExtraBinaries('my-cli:./relative/path', 'claude');
+    expect(result).toEqual([]);
+  });
+
+  it('accepts simple names for PATH lookup', () => {
+    const result = parseExtraBinaries('claude-zhipu:claude-zhipu', 'claude');
+    expect(result).toEqual([
+      { name: 'claude-zhipu', path: 'claude-zhipu', agent: 'claude' },
+    ]);
+  });
+
+  it('trims whitespace around names and paths', () => {
+    const result = parseExtraBinaries(' claude-zhipu : /usr/bin/zhipu ', 'codex');
+    expect(result).toEqual([
+      { name: 'claude-zhipu', path: '/usr/bin/zhipu', agent: 'codex' },
+    ]);
+  });
+
+  it('handles multiple entries with some invalid', () => {
+    const result = parseExtraBinaries(
+      'good:/usr/bin/good,bad,claude:/collision,also-good:/usr/bin/also',
+      'gemini'
+    );
+    expect(result).toEqual([
+      { name: 'good', path: '/usr/bin/good', agent: 'gemini' },
+      { name: 'also-good', path: '/usr/bin/also', agent: 'gemini' },
+    ]);
+  });
+});
+
+describe('getExtraBinariesConfig', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.EXTRA_CLAUDE_BINARIES;
+    delete process.env.EXTRA_CODEX_BINARIES;
+    delete process.env.EXTRA_GEMINI_BINARIES;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it('returns empty map when no env vars set', () => {
+    const result = getExtraBinariesConfig();
+    expect(result.size).toBe(0);
+  });
+
+  it('reads from all three env vars', () => {
+    process.env.EXTRA_CLAUDE_BINARIES = 'claude-zhipu:/usr/bin/zhipu';
+    process.env.EXTRA_CODEX_BINARIES = 'codex-alt:/usr/bin/codex-alt';
+    process.env.EXTRA_GEMINI_BINARIES = 'gemini-alt:/usr/bin/gemini-alt';
+
+    const result = getExtraBinariesConfig();
+    expect(result.size).toBe(3);
+    expect(result.get('claude-zhipu')?.agent).toBe('claude');
+    expect(result.get('codex-alt')?.agent).toBe('codex');
+    expect(result.get('gemini-alt')?.agent).toBe('gemini');
+  });
+
+  it('skips duplicate names across env vars', () => {
+    process.env.EXTRA_CLAUDE_BINARIES = 'dupe:/usr/bin/a';
+    process.env.EXTRA_CODEX_BINARIES = 'dupe:/usr/bin/b';
+
+    const result = getExtraBinariesConfig();
+    expect(result.size).toBe(1);
+    expect(result.get('dupe')?.agent).toBe('claude');
   });
 });

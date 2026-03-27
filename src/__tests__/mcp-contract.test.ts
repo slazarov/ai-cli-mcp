@@ -106,6 +106,7 @@ describe('MCP Contract Tests', () => {
     const runTool = tools.find((tool: any) => tool.name === 'run');
     expect(runTool.inputSchema.required).toEqual(['workFolder']);
     expect(Object.keys(runTool.inputSchema.properties).sort()).toEqual([
+      'binary',
       'model',
       'prompt',
       'prompt_file',
