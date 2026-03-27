@@ -114,7 +114,9 @@ ai-cli models
 ai-cli run --cwd "$PWD" --model sonnet --prompt "summarize this repository"
 ai-cli ps
 ai-cli result 12345
+ai-cli result 12345 --output-only
 ai-cli wait 12345 --timeout 300
+ai-cli wait 12345 --output-only
 ai-cli kill 12345
 ai-cli cleanup
 ai-cli-mcp
@@ -242,6 +244,7 @@ Waits for multiple AI agent processes to complete and returns their combined res
 **Arguments:**
 - `pids` (array of numbers, required): List of process IDs to wait for (returned by the `run` tool).
 - `timeout` (number, optional): Maximum wait time in seconds. Defaults to 180 (3 minutes).
+- `output_only` (boolean, optional): If true, returns only the agent output (message, session_id, status) for each process without process metadata (pid, prompt, workFolder, etc.). Useful when prompts are large and you only need the results. Defaults to false.
 
 ### `list_processes`
 
@@ -253,6 +256,8 @@ Gets the current output and status of an AI agent process by PID.
 
 **Arguments:**
 - `pid` (number, required): The process ID returned by the `run` tool.
+- `verbose` (boolean, optional): If true, returns detailed execution information including tool usage history. Defaults to false.
+- `output_only` (boolean, optional): If true, returns only the agent output (message, session_id, status) without process metadata (pid, prompt, workFolder, etc.). Useful when prompts are large and you only need the results. Defaults to false.
 
 ### `kill_process`
 
