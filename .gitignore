@@ -24,3 +24,7 @@ coverage/
 # IDE
 .vscode/
 .idea/
+
+.claude
+_bmad
+.mcp.json
