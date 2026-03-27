@@ -129,7 +129,7 @@ export class ProcessService {
     return processes;
   }
 
-  getProcessResult(pid: number, verbose = false): any {
+  getProcessResult(pid: number, verbose = false, outputOnly = false): any {
     const process = this.processManager.get(pid);
     if (!process) {
       throw new Error(`Process with PID ${pid} not found`);
@@ -145,6 +145,25 @@ export class ProcessService {
       } else if (process.toolType === 'gemini') {
         agentOutput = parseGeminiOutput(process.stdout);
       }
+    }
+
+    if (outputOnly) {
+      const result: any = { status: process.status };
+      if (agentOutput) {
+        if (!verbose && agentOutput.tools) {
+          const { tools, ...rest } = agentOutput;
+          Object.assign(result, rest);
+        } else {
+          Object.assign(result, agentOutput);
+        }
+        if (agentOutput.session_id) {
+          result.session_id = agentOutput.session_id;
+        }
+      } else {
+        result.stdout = process.stdout;
+        result.stderr = process.stderr;
+      }
+      return result;
     }
 
     const response: any = {

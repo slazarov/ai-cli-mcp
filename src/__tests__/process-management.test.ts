@@ -567,9 +567,65 @@ Unicodeテスト: 🎌 🗾 ✨
       })).rejects.toThrow('Missing or invalid required parameter: pid');
     });
 
+    it('should return only agent output when output_only is true', async () => {
+      const { handlers } = await setupServer();
+
+      const mockProcess = new EventEmitter() as any;
+      mockProcess.pid = 12370;
+      mockProcess.stdout = new EventEmitter();
+      mockProcess.stderr = new EventEmitter();
+      mockProcess.kill = vi.fn();
+
+      mockSpawn.mockReturnValue(mockProcess);
+
+      const callToolHandler = handlers.get('callTool')!;
+
+      // Start a process
+      await callToolHandler!({
+        params: {
+          name: 'run',
+          arguments: {
+            prompt: 'a very long prompt that would waste tokens if echoed back',
+            workFolder: '/tmp'
+          }
+        }
+      });
+
+      // Simulate JSON output
+      const claudeJsonOutput = {
+        session_id: 'output-only-session',
+        message: 'Task completed successfully'
+      };
+      mockProcess.stdout.emit('data', JSON.stringify(claudeJsonOutput));
+      mockProcess.emit('close', 0);
+
+      // Get result with output_only
+      const result = await callToolHandler!({
+        params: {
+          name: 'get_result',
+          arguments: {
+            pid: 12370,
+            output_only: true
+          }
+        }
+      });
+
+      const output = JSON.parse(result.content[0].text);
+      // Should include status and agent output fields
+      expect(output.status).toBe('completed');
+      expect(output.session_id).toBe('output-only-session');
+      expect(output.message).toBe('Task completed successfully');
+      // Should NOT include envelope fields
+      expect(output.pid).toBeUndefined();
+      expect(output.prompt).toBeUndefined();
+      expect(output.workFolder).toBeUndefined();
+      expect(output.agent).toBeUndefined();
+      expect(output.model).toBeUndefined();
+    });
+
     it('should handle non-JSON output gracefully', async () => {
       const { handlers } = await setupServer();
-      
+
       const mockProcess = new EventEmitter() as any;
       mockProcess.pid = 12355;
       mockProcess.stdout = new EventEmitter();

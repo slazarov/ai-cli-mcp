@@ -193,7 +193,7 @@ describe('ai-cli app', () => {
 
     const resultExitCode = await runCli(['result', '123'], { stdout, stderr, getProcessResult });
     expect(resultExitCode).toBe(0);
-    expect(getProcessResult).toHaveBeenCalledWith(123, false);
+    expect(getProcessResult).toHaveBeenCalledWith(123, false, false);
 
     const killExitCode = await runCli(['kill', '123'], { stdout, stderr, killProcess });
     expect(killExitCode).toBe(0);
@@ -266,7 +266,29 @@ describe('ai-cli app', () => {
     const exitCode = await runCli(['result', '123', '--verbose'], { stdout, stderr, getProcessResult });
 
     expect(exitCode).toBe(0);
-    expect(getProcessResult).toHaveBeenCalledWith(123, true);
+    expect(getProcessResult).toHaveBeenCalledWith(123, true, false);
+  });
+
+  it('passes output-only through to result', async () => {
+    const stdout = vi.fn();
+    const stderr = vi.fn();
+    const getProcessResult = vi.fn().mockResolvedValue({ status: 'completed', message: 'done' });
+
+    const exitCode = await runCli(['result', '123', '--output-only'], { stdout, stderr, getProcessResult });
+
+    expect(exitCode).toBe(0);
+    expect(getProcessResult).toHaveBeenCalledWith(123, false, true);
+  });
+
+  it('passes both verbose and output-only through to result', async () => {
+    const stdout = vi.fn();
+    const stderr = vi.fn();
+    const getProcessResult = vi.fn().mockResolvedValue({ status: 'completed', message: 'done' });
+
+    const exitCode = await runCli(['result', '123', '--verbose', '--output-only'], { stdout, stderr, getProcessResult });
+
+    expect(exitCode).toBe(0);
+    expect(getProcessResult).toHaveBeenCalledWith(123, true, true);
   });
 
   it('prints detailed help for run --help', async () => {

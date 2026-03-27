@@ -194,6 +194,10 @@ ${getSupportedModelsDescription()}
               verbose: {
                 type: 'boolean',
                 description: 'Optional: If true, returns detailed execution information including tool usage history. Defaults to false.',
+              },
+              output_only: {
+                type: 'boolean',
+                description: 'Optional: If true, returns only the agent output (message, session_id, etc.) without process metadata (pid, prompt, workFolder, etc.). Useful when the prompt is large and you only need the result. Defaults to false.',
               }
             },
             required: ['pid'],
@@ -311,8 +315,9 @@ ${getSupportedModelsDescription()}
 
     const pid = toolArguments.pid;
     const verbose = !!toolArguments.verbose;
+    const outputOnly = !!toolArguments.output_only;
     try {
-      const response = this.processService.getProcessResult(pid, verbose);
+      const response = this.processService.getProcessResult(pid, verbose, outputOnly);
       return {
         content: [{
           type: 'text',

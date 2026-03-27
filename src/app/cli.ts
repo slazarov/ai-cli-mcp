@@ -53,6 +53,7 @@ Get the current result for a tracked process.
 
 Options:
   --verbose                    Include verbose parsed output
+  --output-only                Return only the agent output without process metadata
   --help, -h                   Show this help message
 `;
 
@@ -114,7 +115,7 @@ interface CliDeps {
     reasoning_effort?: string;
   }) => Promise<any>;
   listProcesses: () => Promise<any>;
-  getProcessResult: (pid: number, verbose: boolean) => Promise<any>;
+  getProcessResult: (pid: number, verbose: boolean, outputOnly: boolean) => Promise<any>;
   waitForProcesses: (pids: number[], timeoutSeconds?: number) => Promise<any>;
   killProcess: (pid: number) => Promise<any>;
   cleanupProcesses: () => Promise<any>;
@@ -136,7 +137,7 @@ const defaultDeps: CliDeps = {
   startMcpServer: () => runMcpServer(),
   runProcess: (options) => getCliProcessService().startProcess(options),
   listProcesses: () => getCliProcessService().listProcesses(),
-  getProcessResult: (pid, verbose) => getCliProcessService().getProcessResult(pid, verbose),
+  getProcessResult: (pid, verbose, outputOnly) => getCliProcessService().getProcessResult(pid, verbose, outputOnly),
   waitForProcesses: (pids, timeoutSeconds) => getCliProcessService().waitForProcesses(pids, timeoutSeconds),
   killProcess: (pid) => getCliProcessService().killProcess(pid),
   cleanupProcesses: () => getCliProcessService().cleanupProcesses(),
@@ -287,7 +288,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
       stdout(CLI_HELP_TEXT);
       return 1;
     }
-    writeJson(stdout, await getProcessResult(pid, 'verbose' in flags));
+    writeJson(stdout, await getProcessResult(pid, 'verbose' in flags, 'output-only' in flags));
     return 0;
   }
 

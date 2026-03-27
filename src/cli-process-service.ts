@@ -163,7 +163,7 @@ export class CliProcessService {
     }));
   }
 
-  async getProcessResult(pid: number, verbose = false): Promise<any> {
+  async getProcessResult(pid: number, verbose = false, outputOnly = false): Promise<any> {
     const storedProcess = this.readProcess(pid);
     const refreshed = this.refreshStatus(storedProcess);
     const stdout = this.readTextFileSafe(refreshed.stdoutPath);
@@ -178,6 +178,25 @@ export class CliProcessService {
       } else if (refreshed.toolType === 'gemini') {
         agentOutput = parseGeminiOutput(stdout);
       }
+    }
+
+    if (outputOnly) {
+      const result: any = { status: refreshed.status };
+      if (agentOutput) {
+        if (!verbose && agentOutput.tools) {
+          const { tools, ...rest } = agentOutput;
+          Object.assign(result, rest);
+        } else {
+          Object.assign(result, agentOutput);
+        }
+        if (agentOutput.session_id) {
+          result.session_id = agentOutput.session_id;
+        }
+      } else {
+        result.stdout = stdout;
+        result.stderr = stderr;
+      }
+      return result;
     }
 
     const response: any = {
