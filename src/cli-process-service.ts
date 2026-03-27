@@ -189,7 +189,7 @@ export class CliProcessService {
     }, agentOutput, verbose);
   }
 
-  async waitForProcesses(pids: number[], timeoutSeconds = 180, verbose = false): Promise<any[]> {
+  async waitForProcesses(pids: number[], timeoutSeconds = 180, verbose = false, outputOnly = false): Promise<any[]> {
     const start = Date.now();
     for (const pid of pids) {
       this.readProcess(pid);
@@ -198,7 +198,7 @@ export class CliProcessService {
     while (true) {
       const statuses = pids.map((pid) => this.refreshStatus(this.readProcess(pid)).status);
       if (statuses.every((status) => status !== 'running')) {
-        return Promise.all(pids.map((pid) => this.getProcessResult(pid, verbose)));
+        return Promise.all(pids.map((pid) => this.getProcessResult(pid, verbose, outputOnly)));
       }
 
       if (Date.now() - start >= timeoutSeconds * 1000) {

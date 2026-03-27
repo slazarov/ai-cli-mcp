@@ -245,6 +245,10 @@ ${getSupportedModelsDescription()}
                 type: 'boolean',
                 description: 'Optional: If true, each result item uses the full result shape including metadata fields and detailed parsed output. Defaults to false.',
               },
+              output_only: {
+                type: 'boolean',
+                description: 'Optional: If true, returns only the agent output for each process without process metadata. Defaults to false.',
+              },
             },
             required: ['pids'],
           },
@@ -415,7 +419,8 @@ ${getSupportedModelsDescription()}
       const results = await this.processService.waitForProcesses(
         toolArguments.pids,
         typeof toolArguments.timeout === 'number' ? toolArguments.timeout : 180,
-        !!toolArguments.verbose
+        !!toolArguments.verbose,
+        !!toolArguments.output_only
       );
       return {
         content: [{

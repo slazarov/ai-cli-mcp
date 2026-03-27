@@ -132,6 +132,7 @@ describe('MCP Contract Tests', () => {
     const waitTool = tools.find((tool: any) => tool.name === 'wait');
     expect(waitTool.inputSchema.required).toEqual(['pids']);
     expect(Object.keys(waitTool.inputSchema.properties).sort()).toEqual([
+      'output_only',
       'pids',
       'timeout',
       'verbose',

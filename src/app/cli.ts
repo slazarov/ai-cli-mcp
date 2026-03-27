@@ -48,6 +48,7 @@ By default each result uses the compact shape; set --verbose to include full met
 Options:
   --timeout <seconds>          Maximum wait time in seconds
   --verbose                    Return full metadata and detailed parsed output
+  --output-only                Return only the agent output without process metadata
   --help, -h                   Show this help message
 `;
 
@@ -133,7 +134,7 @@ interface CliDeps {
   }) => Promise<any>;
   listProcesses: () => Promise<any>;
   getProcessResult: (pid: number, verbose: boolean, outputOnly: boolean) => Promise<any>;
-  waitForProcesses: (pids: number[], timeoutSeconds?: number, verbose?: boolean) => Promise<any>;
+  waitForProcesses: (pids: number[], timeoutSeconds?: number, verbose?: boolean, outputOnly?: boolean) => Promise<any>;
   peekProcesses: (pids: number[], peekTimeSec?: number, includeToolCalls?: boolean) => Promise<any>;
   killProcess: (pid: number) => Promise<any>;
   cleanupProcesses: () => Promise<any>;
@@ -156,7 +157,7 @@ const defaultDeps: CliDeps = {
   runProcess: (options) => getCliProcessService().startProcess(options),
   listProcesses: () => getCliProcessService().listProcesses(),
   getProcessResult: (pid, verbose, outputOnly) => getCliProcessService().getProcessResult(pid, verbose, outputOnly),
-  waitForProcesses: (pids, timeoutSeconds, verbose) => getCliProcessService().waitForProcesses(pids, timeoutSeconds, verbose),
+  waitForProcesses: (pids, timeoutSeconds, verbose, outputOnly) => getCliProcessService().waitForProcesses(pids, timeoutSeconds, verbose, outputOnly),
   peekProcesses: (pids, peekTimeSec, includeToolCalls) => getCliProcessService().peekProcesses(pids, peekTimeSec, includeToolCalls),
   killProcess: (pid) => getCliProcessService().killProcess(pid),
   cleanupProcesses: () => getCliProcessService().cleanupProcesses(),
@@ -342,7 +343,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}): Promi
       return 1;
     }
 
-    writeJson(stdout, await waitForProcesses(pids as number[], timeout, 'verbose' in flags));
+    writeJson(stdout, await waitForProcesses(pids as number[], timeout, 'verbose' in flags, 'output-only' in flags));
     return 0;
   }
 
