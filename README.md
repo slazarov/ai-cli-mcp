@@ -121,9 +121,11 @@ ai-cli run --cwd "$PWD" --model oc-openai/gpt-5.4 --session-id ses_123 --prompt 
 ai-cli ps
 ai-cli result 12345
 ai-cli result 12345 --verbose
+ai-cli result 12345 --output-only
 ai-cli peek 12345 --time 10
 ai-cli wait 12345 --timeout 300
 ai-cli wait 12345 --verbose
+ai-cli wait 12345 --output-only
 ai-cli kill 12345
 ai-cli cleanup
 ai-cli-mcp
@@ -275,6 +277,7 @@ By default, each returned result item uses the compact shape shared with `get_re
 - `pids` (array of numbers, required): List of process IDs to wait for (returned by the `run` tool).
 - `timeout` (number, optional): Maximum wait time in seconds. Defaults to 180 (3 minutes).
 - `verbose` (boolean, optional): If `true`, each result item uses the full result shape. Defaults to `false`.
+- `output_only` (boolean, optional): If true, returns only the agent output (message, session_id, status) for each process without process metadata (pid, prompt, workFolder, etc.). Useful when prompts are large and you only need the results. Defaults to false.
 
 ### `peek`
 
@@ -355,6 +358,7 @@ By default, this returns the compact result shape: operational fields such as `p
 **Arguments:**
 - `pid` (number, required): The process ID returned by the `run` tool.
 - `verbose` (boolean, optional): If `true`, returns the full result shape. Defaults to `false`.
+- `output_only` (boolean, optional): If true, returns only the agent output (message, session_id, status) without process metadata (pid, prompt, workFolder, etc.). Useful when prompts are large and you only need the results. Defaults to false.
 
 ### `kill_process`
 
