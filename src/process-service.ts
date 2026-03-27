@@ -164,13 +164,29 @@ export class ProcessService {
     return processes;
   }
 
-  getProcessResult(pid: number, verbose = false): any {
+  getProcessResult(pid: number, verbose = false, outputOnly = false): any {
     const process = this.processManager.get(pid);
     if (!process) {
       throw new Error(`Process with PID ${pid} not found`);
     }
 
     const agentOutput = parseAgentOutput(process.toolType, process.stdout, process.stderr);
+
+    if (outputOnly) {
+      const result: any = { status: process.status };
+      if (agentOutput) {
+        if (!verbose && agentOutput.tools) {
+          const { tools, ...rest } = agentOutput;
+          Object.assign(result, rest);
+        } else {
+          Object.assign(result, agentOutput);
+        }
+      } else {
+        result.stdout = process.stdout;
+        result.stderr = process.stderr;
+      }
+      return result;
+    }
 
     return buildProcessResult({
       pid,

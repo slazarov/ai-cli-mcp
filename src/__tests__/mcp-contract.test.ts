@@ -124,6 +124,7 @@ describe('MCP Contract Tests', () => {
     const getResultTool = tools.find((tool: any) => tool.name === 'get_result');
     expect(getResultTool.inputSchema.required).toEqual(['pid']);
     expect(Object.keys(getResultTool.inputSchema.properties).sort()).toEqual([
+      'output_only',
       'pid',
       'verbose',
     ]);

@@ -152,12 +152,28 @@ export class CliProcessService {
     }));
   }
 
-  async getProcessResult(pid: number, verbose = false): Promise<any> {
+  async getProcessResult(pid: number, verbose = false, outputOnly = false): Promise<any> {
     const storedProcess = this.readProcess(pid);
     const refreshed = this.refreshStatus(storedProcess);
     const stdout = this.readTextFileSafe(refreshed.stdoutPath);
     const stderr = this.readTextFileSafe(refreshed.stderrPath);
     const agentOutput = parseAgentOutput(refreshed.toolType, stdout, stderr);
+
+    if (outputOnly) {
+      const result: any = { status: refreshed.status };
+      if (agentOutput) {
+        if (!verbose && agentOutput.tools) {
+          const { tools, ...rest } = agentOutput;
+          Object.assign(result, rest);
+        } else {
+          Object.assign(result, agentOutput);
+        }
+      } else {
+        result.stdout = stdout;
+        result.stderr = stderr;
+      }
+      return result;
+    }
 
     return buildProcessResult({
       pid,
