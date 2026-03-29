@@ -266,6 +266,7 @@ Executes a prompt using Claude CLI, Codex CLI, Gemini CLI, Forge CLI, or OpenCod
 - OpenCode: `opencode` for the configured default backend model, plus explicit wrappers like `oc-openai/gpt-5.4`
 - `reasoning_effort` (string, optional): Reasoning control for Claude and Codex. Claude uses `--effort` (allowed: "low", "medium", "high", "xhigh", "max"). Codex uses `model_reasoning_effort` (allowed: "low", "medium", "high", "xhigh"). Gemini, Forge, and OpenCode do not support `reasoning_effort`.
 - `session_id` (string, optional): Optional session ID to resume a previous session. Supported for Claude, Codex, Gemini, Forge, and OpenCode. OpenCode resumes in place via `--session` and may also be combined with an explicit `oc-<provider/model>` selection.
+- `binary` (string, optional): Select which CLI binary to use. Defaults to the built-in binary for the agent type. Use this with extra binaries configured via `EXTRA_*_BINARIES` env vars (see [Extra CLI Binaries](#extra-cli-binaries) below).
 
 ### `wait`
 
@@ -434,6 +435,46 @@ Normally not required, but useful for customizing CLI paths or debugging.
       }
     },
 ```
+
+### Extra CLI Binaries
+
+You can register additional CLI binaries per agent type. This is useful when you have multiple wrappers that speak the same CLI interface but target different providers (e.g., `claude-zhipu` for GLM, `claude-deepseek` for DeepSeek).
+
+- `EXTRA_CLAUDE_BINARIES`: Additional Claude-compatible binaries
+- `EXTRA_CODEX_BINARIES`: Additional Codex-compatible binaries
+- `EXTRA_GEMINI_BINARIES`: Additional Gemini-compatible binaries
+
+**Format:** `name:path` pairs, comma-separated. The path can be an absolute path or a simple command name (resolved via PATH).
+
+```json
+    "ai-cli-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-cli-mcp@latest"],
+      "env": {
+        "EXTRA_CLAUDE_BINARIES": "claude-zhipu:/usr/local/bin/claude-zhipu,claude-deepseek:claude-deepseek"
+      }
+    },
+```
+
+Once configured, use the `binary` parameter in the `run` tool to select which wrapper to spawn:
+
+```json
+{
+  "prompt": "summarize this repo",
+  "workFolder": "/path/to/project",
+  "model": "sonnet",
+  "binary": "claude-zhipu"
+}
+```
+
+The binary's agent type (claude/codex/gemini) determines the CLI argument format and output parser. The `model` parameter is passed through to the wrapper as-is — model resolution is the wrapper's responsibility.
+
+Available binaries are listed in the `run` tool description and in startup logs. Omitting `binary` uses the default binary, preserving full backwards compatibility.
+
+**Rules:**
+- Binary names must not collide with the built-in names (`claude`, `codex`, `gemini`)
+- Relative paths are not supported (same security rules as `CLAUDE_CLI_NAME`)
+- Duplicate names across env vars are skipped with a warning
 
 ## License
 
