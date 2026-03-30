@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { accessSync } from 'node:fs';
-import { parseExtraBinaries, getExtraBinariesConfig } from '../cli-utils.js';
+import { parseExtraBinaries, parseCcsProfiles, getExtraBinariesConfig } from '../cli-utils.js';
 
 vi.mock('node:fs', () => ({
   accessSync: vi.fn(),
@@ -275,6 +275,91 @@ describe('parseExtraBinaries', () => {
   });
 });
 
+describe('parseCcsProfiles', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.CCS_PROFILES;
+    delete process.env.CCS_CLI_NAME;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it('returns empty array when CCS_PROFILES not set', () => {
+    const result = parseCcsProfiles();
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when CCS_PROFILES is empty', () => {
+    process.env.CCS_PROFILES = '  ';
+    const result = parseCcsProfiles();
+    expect(result).toEqual([]);
+  });
+
+  it('parses single profile with explicit ccs path', () => {
+    process.env.CCS_PROFILES = 'glm';
+    const result = parseCcsProfiles('/usr/bin/ccs');
+    expect(result).toEqual([
+      { name: 'glm', path: '/usr/bin/ccs', agent: 'claude', prefixArgs: ['glm'] },
+    ]);
+  });
+
+  it('parses multiple profiles', () => {
+    process.env.CCS_PROFILES = 'glm,qwen,mm';
+    const result = parseCcsProfiles('/usr/bin/ccs');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({ name: 'glm', path: '/usr/bin/ccs', agent: 'claude', prefixArgs: ['glm'] });
+    expect(result[1]).toEqual({ name: 'qwen', path: '/usr/bin/ccs', agent: 'claude', prefixArgs: ['qwen'] });
+    expect(result[2]).toEqual({ name: 'mm', path: '/usr/bin/ccs', agent: 'claude', prefixArgs: ['mm'] });
+  });
+
+  it('trims whitespace in profile names', () => {
+    process.env.CCS_PROFILES = ' glm , qwen ';
+    const result = parseCcsProfiles('/usr/bin/ccs');
+    expect(result).toHaveLength(2);
+    expect(result[0]!.name).toBe('glm');
+    expect(result[1]!.name).toBe('qwen');
+  });
+
+  it('skips empty entries from extra commas', () => {
+    process.env.CCS_PROFILES = 'glm,,qwen,';
+    const result = parseCcsProfiles('/usr/bin/ccs');
+    expect(result).toHaveLength(2);
+  });
+
+  it('skips profiles that conflict with built-in names', () => {
+    process.env.CCS_PROFILES = 'claude,glm,codex';
+    const result = parseCcsProfiles('/usr/bin/ccs');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('glm');
+  });
+
+  it('returns empty when ccs binary not found and no explicit path', () => {
+    process.env.CCS_PROFILES = 'glm';
+    // Pass null to simulate ccs not found
+    const result = parseCcsProfiles(null);
+    expect(result).toEqual([]);
+  });
+
+  it('uses custom CCS_CLI_NAME path when provided', () => {
+    process.env.CCS_PROFILES = 'glm';
+    const result = parseCcsProfiles('/custom/path/ccs');
+    expect(result).toEqual([
+      { name: 'glm', path: '/custom/path/ccs', agent: 'claude', prefixArgs: ['glm'] },
+    ]);
+  });
+
+  it('skips profile names with invalid characters', () => {
+    process.env.CCS_PROFILES = '--help,glm,my profile';
+    const result = parseCcsProfiles('/usr/bin/ccs');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('glm');
+  });
+});
+
 describe('getExtraBinariesConfig', () => {
   const originalEnv = process.env;
 
@@ -283,6 +368,8 @@ describe('getExtraBinariesConfig', () => {
     delete process.env.EXTRA_CLAUDE_BINARIES;
     delete process.env.EXTRA_CODEX_BINARIES;
     delete process.env.EXTRA_GEMINI_BINARIES;
+    delete process.env.CCS_PROFILES;
+    delete process.env.CCS_CLI_NAME;
   });
 
   afterEach(() => {
@@ -313,5 +400,15 @@ describe('getExtraBinariesConfig', () => {
     const result = getExtraBinariesConfig();
     expect(result.size).toBe(1);
     expect(result.get('dupe')?.agent).toBe('claude');
+  });
+
+  it('extra binaries take precedence over CCS profiles with same name', () => {
+    process.env.EXTRA_CLAUDE_BINARIES = 'glm:/usr/bin/glm-custom';
+    process.env.CCS_PROFILES = 'glm';
+
+    const result = getExtraBinariesConfig();
+    expect(result.size).toBe(1);
+    expect(result.get('glm')?.path).toBe('/usr/bin/glm-custom');
+    expect(result.get('glm')?.prefixArgs).toBeUndefined();
   });
 });

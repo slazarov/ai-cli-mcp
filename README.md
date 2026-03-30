@@ -476,6 +476,37 @@ Available binaries are listed in the `run` tool description and in startup logs.
 - Relative paths are not supported (same security rules as `CLAUDE_CLI_NAME`)
 - Duplicate names across env vars are skipped with a warning
 
+### CCS (Claude Code Switcher) Profiles
+
+If you use [ccs](https://github.com/kaitranntt/ccs) to manage multiple providers, you can register ccs profiles directly via the `CCS_PROFILES` env var. This automatically makes each profile available as a `binary` option in the `run` tool.
+
+- `CCS_PROFILES`: Comma-separated list of ccs profile names (e.g., `glm,qwen,mm`)
+- `CCS_CLI_NAME` (optional): Override the path to the `ccs` binary (defaults to `ccs` on PATH)
+
+```json
+    "ai-cli-mcp": {
+      "command": "npx",
+      "args": ["-y", "ai-cli-mcp@latest"],
+      "env": {
+        "CCS_PROFILES": "glm,qwen"
+      }
+    },
+```
+
+Then use the profile name as the `binary` parameter:
+
+```json
+{
+  "prompt": "summarize this repo",
+  "workFolder": "/path/to/project",
+  "binary": "glm"
+}
+```
+
+Under the hood, this spawns `ccs glm --dangerously-skip-permissions --output-format stream-json ...`, which ccs handles by loading the profile's settings and env vars before forwarding to `claude`.
+
+**Note:** Extra binaries (`EXTRA_*_BINARIES`) take precedence over CCS profiles if both use the same name.
+
 ## License
 
 MIT

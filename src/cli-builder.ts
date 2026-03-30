@@ -194,6 +194,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
 
   let binaryOverridePath: string | undefined;
   let binaryAgent: 'claude' | 'codex' | 'gemini' | undefined;
+  let prefixArgs: string[] = [];
 
   if (options.binary) {
     const coreBuiltIns = new Set<string>(['claude', 'codex', 'gemini']);
@@ -204,6 +205,9 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
       const entry = options.extraBinaries.get(options.binary)!;
       binaryOverridePath = entry.path;
       binaryAgent = entry.agent;
+      if (entry.prefixArgs) {
+        prefixArgs = entry.prefixArgs;
+      }
     } else {
       const available = ['claude', 'codex', 'gemini', 'forge', 'opencode'];
       if (options.extraBinaries) {
@@ -304,6 +308,10 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
     if (resolvedModel) {
       args.push('--model', resolvedModel);
     }
+  }
+
+  if (prefixArgs.length > 0) {
+    args = [...prefixArgs, ...args];
   }
 
   return { cliPath, args, cwd, agent, prompt, resolvedModel };

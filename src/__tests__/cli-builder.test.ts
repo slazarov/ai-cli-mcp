@@ -625,6 +625,7 @@ describe('cli-builder', () => {
         ['claude-zhipu', { name: 'claude-zhipu', path: '/usr/local/bin/claude-zhipu', agent: 'claude' as const }],
         ['codex-alt', { name: 'codex-alt', path: '/usr/local/bin/codex-alt', agent: 'codex' as const }],
         ['gemini-alt', { name: 'gemini-alt', path: '/usr/local/bin/gemini-alt', agent: 'gemini' as const }],
+        ['glm', { name: 'glm', path: '/usr/local/bin/ccs', agent: 'claude' as const, prefixArgs: ['glm'] }],
       ]);
 
       it('should use extra binary path when binary param is set', () => {
@@ -720,6 +721,45 @@ describe('cli-builder', () => {
         expect(cmd.args).toContain('-y');
         expect(cmd.args).toContain('--output-format');
         expect(cmd.args).toContain('json');
+      });
+
+      it('should prepend prefixArgs for CCS profile binaries', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          binary: 'glm',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.cliPath).toBe('/usr/local/bin/ccs');
+        expect(cmd.agent).toBe('claude');
+        // First arg should be the profile name
+        expect(cmd.args[0]).toBe('glm');
+        // Followed by normal claude args
+        expect(cmd.args[1]).toBe('--dangerously-skip-permissions');
+        expect(cmd.args).toContain('--output-format');
+        expect(cmd.args).toContain('stream-json');
+        expect(cmd.args).toContain('-p');
+        expect(cmd.args).toContain('test');
+      });
+
+      it('should prepend prefixArgs before model and session args', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          binary: 'glm',
+          model: 'sonnet',
+          session_id: 'ses-123',
+          extraBinaries: EXTRAS,
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.args[0]).toBe('glm');
+        expect(cmd.args).toContain('--model');
+        expect(cmd.args).toContain('sonnet');
+        expect(cmd.args).toContain('-r');
+        expect(cmd.args).toContain('ses-123');
       });
     });
   });

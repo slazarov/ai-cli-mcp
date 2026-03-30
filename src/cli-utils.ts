@@ -232,6 +232,49 @@ export function parseExtraBinaries(
   return entries;
 }
 
+export function findCcsCli(): string | null {
+  const customName = process.env.CCS_CLI_NAME;
+  if (customName) {
+    const validationError = validateCustomCliName('CCS_CLI_NAME', customName);
+    if (validationError) {
+      console.error(`[Warning] ${validationError} — ignoring`);
+      return null;
+    }
+    if (path.isAbsolute(customName)) {
+      return isExecutableFile(customName) ? customName : null;
+    }
+    return findExecutableOnPath(customName);
+  }
+  return findExecutableOnPath('ccs');
+}
+
+export function parseCcsProfiles(ccsPath?: string | null): ExtraBinaryEntry[] {
+  const envValue = process.env.CCS_PROFILES;
+  if (!envValue?.trim()) return [];
+
+  const resolvedCcsPath = ccsPath === undefined ? findCcsCli() : ccsPath;
+  if (!resolvedCcsPath) {
+    console.error('[Warning] CCS_PROFILES set but ccs binary not found on PATH — skipping');
+    return [];
+  }
+
+  const entries: ExtraBinaryEntry[] = [];
+  for (const raw of envValue.split(',')) {
+    const name = raw.trim();
+    if (!name) continue;
+    if (BUILT_IN_NAMES.has(name)) {
+      console.error(`[Warning] CCS profile name "${name}" conflicts with built-in — skipping`);
+      continue;
+    }
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(name)) {
+      console.error(`[Warning] CCS profile name "${name}" contains invalid characters — skipping`);
+      continue;
+    }
+    entries.push({ name, path: resolvedCcsPath, agent: 'claude', prefixArgs: [name] });
+  }
+  return entries;
+}
+
 export function getExtraBinariesConfig(): Map<string, ExtraBinaryEntry> {
   const result = new Map<string, ExtraBinaryEntry>();
   const envVars: Array<{ env: string; agent: ExtraBinaryAgent }> = [
@@ -249,6 +292,15 @@ export function getExtraBinariesConfig(): Map<string, ExtraBinaryEntry> {
       }
       result.set(entry.name, entry);
     }
+  }
+
+  const ccsEntries = parseCcsProfiles();
+  for (const entry of ccsEntries) {
+    if (result.has(entry.name)) {
+      debugLog(`[Debug] CCS profile "${entry.name}" skipped — name already registered as extra binary`);
+      continue;
+    }
+    result.set(entry.name, entry);
   }
 
   return result;
