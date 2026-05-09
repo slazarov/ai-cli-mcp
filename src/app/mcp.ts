@@ -200,6 +200,11 @@ ${getSupportedModelsDescription()}
                 type: 'string',
                 description: 'Optional session ID to resume a previous session. Supported for Claude, Codex, Gemini, Forge, and OpenCode. OpenCode resumes in-place via --session and may also be combined with explicit oc-<provider/model> selection.',
               },
+              additional_args: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional array of extra CLI arguments passed directly to the underlying agent binary. Inserted after built-in control flags but before the prompt. Useful for agent-specific config overrides (e.g., Codex -c flags). Arguments are passed as-is without shell interpretation. Note: forge -C and opencode --dir/-d flags are blocked to prevent workFolder conflicts.',
+              },
               binary: {
                 type: 'string',
                 description: `Optional: Select which CLI binary to use. Defaults to the built-in binary for the agent type determined by the model. Available: ${this.getAvailableBinariesDescription()}`,
@@ -387,6 +392,7 @@ ${getSupportedModelsDescription()}
         model: toolArguments.model,
         session_id: toolArguments.session_id,
         reasoning_effort: toolArguments.reasoning_effort,
+        additional_args: toolArguments.additional_args,
         binary: toolArguments.binary,
       });
       return {

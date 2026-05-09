@@ -620,6 +620,252 @@ describe('cli-builder', () => {
       });
     });
 
+    describe('additional_args', () => {
+      it('should place additional_args before prompt for codex', () => {
+        const cmd = buildCliCommand({
+          prompt: 'do something',
+          workFolder: '/tmp',
+          model: 'gpt-5.5',
+          additional_args: ['-c', 'project_root_markers=[]'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const promptIndex = cmd.args.indexOf('do something');
+        const flagIndex = cmd.args.indexOf('-c');
+        expect(flagIndex).toBeGreaterThan(-1);
+        expect(flagIndex).toBeLessThan(promptIndex);
+        expect(cmd.args[flagIndex + 1]).toBe('project_root_markers=[]');
+      });
+
+      it('should preserve order of multiple additional_args', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'gpt-5.5',
+          additional_args: ['-c', 'key1=val1', '-c', 'key2=val2'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const args = cmd.args;
+        const firstC = args.indexOf('-c');
+        expect(args[firstC + 1]).toBe('key1=val1');
+        expect(args[firstC + 2]).toBe('-c');
+        expect(args[firstC + 3]).toBe('key2=val2');
+      });
+
+      it('should not change codex args when additional_args is omitted', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'gpt-5.5',
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.args).toEqual([
+          'exec',
+          '--model',
+          'gpt-5.5',
+          '--skip-git-repo-check',
+          '--dangerously-bypass-approvals-and-sandbox',
+          '--json',
+          'test',
+        ]);
+      });
+
+      it('should not change codex args when additional_args is empty', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'gpt-5.5',
+          additional_args: [],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        expect(cmd.args).toEqual([
+          'exec',
+          '--model',
+          'gpt-5.5',
+          '--skip-git-repo-check',
+          '--dangerously-bypass-approvals-and-sandbox',
+          '--json',
+          'test',
+        ]);
+      });
+
+      it('should place additional_args before -p prompt for claude', () => {
+        const cmd = buildCliCommand({
+          prompt: 'hello',
+          workFolder: '/tmp',
+          model: 'sonnet',
+          additional_args: ['--allowedTools', 'mcp'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const pIndex = cmd.args.indexOf('-p');
+        const flagIndex = cmd.args.indexOf('--allowedTools');
+        expect(flagIndex).toBeGreaterThan(-1);
+        expect(flagIndex).toBeLessThan(pIndex);
+        expect(cmd.args[flagIndex + 1]).toBe('mcp');
+      });
+
+      it('should place additional_args before prompt for gemini', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'gemini-2.5-pro',
+          additional_args: ['--extra-flag'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const promptIndex = cmd.args.indexOf('test');
+        const flagIndex = cmd.args.indexOf('--extra-flag');
+        expect(flagIndex).toBeGreaterThan(-1);
+        expect(flagIndex).toBeLessThan(promptIndex);
+      });
+
+      it('should place additional_args before prompt for opencode', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'opencode',
+          additional_args: ['--verbose'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const promptIndex = cmd.args.indexOf('test');
+        const flagIndex = cmd.args.indexOf('--verbose');
+        expect(flagIndex).toBeGreaterThan(-1);
+        expect(flagIndex).toBeLessThan(promptIndex);
+      });
+
+      it('should place additional_args before -p prompt for forge', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'forge',
+          additional_args: ['--extra'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const pIndex = cmd.args.indexOf('-p');
+        const flagIndex = cmd.args.indexOf('--extra');
+        expect(flagIndex).toBeGreaterThan(-1);
+        expect(flagIndex).toBeLessThan(pIndex);
+      });
+
+      it('should reject non-string items in additional_args', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            additional_args: [123 as any],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args[0] must be a string, got number');
+      });
+
+      it('should reject non-array additional_args', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            additional_args: 'not-an-array' as any,
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args must be an array of strings');
+      });
+
+      it('should block -C flag for forge', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            model: 'forge',
+            additional_args: ['-C', '/other'],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args contains blocked flag "-C" which conflicts with workFolder for forge');
+      });
+
+      it('should block --dir flag for opencode', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            model: 'opencode',
+            additional_args: ['--dir', '/other'],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args contains blocked flag "--dir" which conflicts with workFolder for opencode');
+      });
+
+      it('should block -d flag for opencode', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            model: 'opencode',
+            additional_args: ['-d', '/other'],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args contains blocked flag "-d" which conflicts with workFolder for opencode');
+      });
+
+      it('should block combined --dir=value form for opencode', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            model: 'opencode',
+            additional_args: ['--dir=/other'],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args contains blocked flag "--dir=/other" which conflicts with workFolder for opencode');
+      });
+
+      it('should block combined -C/path form for forge', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            model: 'forge',
+            additional_args: ['-C/other'],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args contains blocked flag "-C/other" which conflicts with workFolder for forge');
+      });
+
+      it('should block combined -d/path form for opencode', () => {
+        expect(() =>
+          buildCliCommand({
+            prompt: 'test',
+            workFolder: '/tmp',
+            model: 'opencode',
+            additional_args: ['-d/other'],
+            cliPaths: DEFAULT_CLI_PATHS,
+          })
+        ).toThrow('additional_args contains blocked flag "-d/other" which conflicts with workFolder for opencode');
+      });
+
+      it('should coexist with built-in reasoning -c flag for codex', () => {
+        const cmd = buildCliCommand({
+          prompt: 'test',
+          workFolder: '/tmp',
+          model: 'gpt-5.5',
+          reasoning_effort: 'high',
+          additional_args: ['-c', 'custom_key=val'],
+          cliPaths: DEFAULT_CLI_PATHS,
+        });
+
+        const cFlags = cmd.args.reduce((acc, arg, i) => {
+          if (arg === '-c') acc.push(cmd.args[i + 1]);
+          return acc;
+        }, [] as string[]);
+        expect(cFlags).toContain('model_reasoning_effort=high');
+        expect(cFlags).toContain('custom_key=val');
+      });
+    });
+
     describe('binary parameter', () => {
       const EXTRAS = new Map([
         ['claude-zhipu', { name: 'claude-zhipu', path: '/usr/local/bin/claude-zhipu', agent: 'claude' as const }],

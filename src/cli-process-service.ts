@@ -65,6 +65,7 @@ export interface CliRunOptions {
   model?: string;
   session_id?: string;
   reasoning_effort?: string;
+  additional_args?: string[];
 }
 
 function resolveDefaultStateDir(): string {
@@ -138,6 +139,7 @@ export class CliProcessService {
       model: options.model,
       session_id: options.session_id,
       reasoning_effort: options.reasoning_effort,
+      additional_args: options.additional_args,
       cliPaths: this.cliPaths,
     });
 

@@ -147,9 +147,39 @@ export interface BuildCliCommandOptions {
   model?: string;
   session_id?: string;
   reasoning_effort?: string;
+  additional_args?: string[];
   cliPaths: CliPaths;
   binary?: string;
   extraBinaries?: Map<string, ExtraBinaryEntry>;
+}
+
+const BLOCKED_CWD_FLAGS: Record<string, string[]> = {
+  forge: ['-C'],
+  opencode: ['--dir', '-d'],
+};
+
+function validateAdditionalArgs(args: unknown, agent: string): string[] {
+  if (args === undefined || args === null) return [];
+  if (!Array.isArray(args)) {
+    throw new Error('additional_args must be an array of strings');
+  }
+  for (let i = 0; i < args.length; i++) {
+    if (typeof args[i] !== 'string') {
+      throw new Error(`additional_args[${i}] must be a string, got ${typeof args[i]}`);
+    }
+  }
+  if (args.length === 0) return [];
+  const blocked = BLOCKED_CWD_FLAGS[agent];
+  if (blocked) {
+    for (const arg of args) {
+      for (const flag of blocked) {
+        if (arg === flag || (flag.startsWith('--') && arg.startsWith(flag + '=')) || (!flag.startsWith('--') && arg.startsWith(flag) && arg.length > flag.length)) {
+          throw new Error(`additional_args contains blocked flag "${arg}" which conflicts with workFolder for ${agent}`);
+        }
+      }
+    }
+  }
+  return args as string[];
 }
 
 export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
@@ -236,6 +266,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
     ? rawModel
     : (resolvedModel || rawModel);
   const reasoningEffort = getReasoningEffort(reasoningTargetModel, reasoningEffortArg, binaryAgent);
+  const additionalArgs = validateAdditionalArgs(options.additional_args, agent);
 
   let cliPath: string;
   let args: string[];
@@ -252,6 +283,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
     if (reasoningEffort) {
       args.push('-c', `model_reasoning_effort=${reasoningEffort}`);
     }
+    args.push(...additionalArgs);
     if (resolvedModel && resolvedModel !== 'codex') {
       args.push('--model', resolvedModel);
     }
@@ -265,6 +297,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
       args.push('-r', options.session_id);
     }
 
+    args.push(...additionalArgs);
     if (resolvedModel) {
       args.push('--model', resolvedModel);
     }
@@ -278,6 +311,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
       args.push('--conversation-id', options.session_id);
     }
 
+    args.push(...additionalArgs);
     args.push('-p', prompt);
   } else if (agent === 'opencode') {
     cliPath = options.cliPaths.opencode;
@@ -291,6 +325,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
       args.push('--model', openCodeModel);
     }
 
+    args.push(...additionalArgs);
     args.push(prompt);
   } else {
     cliPath = binaryOverridePath || options.cliPaths.claude;
@@ -304,6 +339,7 @@ export function buildCliCommand(options: BuildCliCommandOptions): CliCommand {
       args.push('--effort', reasoningEffort);
     }
 
+    args.push(...additionalArgs);
     args.push('-p', prompt);
     if (resolvedModel) {
       args.push('--model', resolvedModel);

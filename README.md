@@ -267,6 +267,22 @@ Executes a prompt using Claude CLI, Codex CLI, Gemini CLI, Forge CLI, or OpenCod
 - `reasoning_effort` (string, optional): Reasoning control for Claude and Codex. Claude uses `--effort` (allowed: "low", "medium", "high", "xhigh", "max"). Codex uses `model_reasoning_effort` (allowed: "low", "medium", "high", "xhigh"). Gemini, Forge, and OpenCode do not support `reasoning_effort`.
 - `session_id` (string, optional): Optional session ID to resume a previous session. Supported for Claude, Codex, Gemini, Forge, and OpenCode. OpenCode resumes in place via `--session` and may also be combined with an explicit `oc-<provider/model>` selection.
 - `binary` (string, optional): Select which CLI binary to use. Defaults to the built-in binary for the agent type. Use this with extra binaries configured via `EXTRA_*_BINARIES` env vars (see [Extra CLI Binaries](#extra-cli-binaries) below).
+- `additional_args` (array of strings, optional): Extra CLI arguments passed directly to the underlying agent binary. Inserted after built-in control flags but before the prompt. Arguments are passed as argv tokens without shell interpretation. Forge `-C` and OpenCode `--dir`/`-d` flags are blocked to prevent `workFolder` conflicts. Note: a trailing flag that expects a value will consume the next argv token (which may be the prompt); ensure such flags have their value in the array.
+
+**`additional_args` example — Codex config overrides:**
+
+```json
+{
+  "prompt": "review the code",
+  "workFolder": "/tmp/myproject",
+  "model": "gpt-5.5",
+  "reasoning_effort": "high",
+  "additional_args": [
+    "-c", "project_root_markers=[]",
+    "-c", "skills.config=[{path=\"/abs/project/.agents/skills/lps-code-review/SKILL.md\",enabled=false}]"
+  ]
+}
+```
 
 ### `wait`
 
