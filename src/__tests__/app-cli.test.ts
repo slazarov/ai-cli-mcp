@@ -144,7 +144,7 @@ describe('ai-cli app', () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(waitForProcesses).toHaveBeenCalledWith([123, 456], 5, false);
+    expect(waitForProcesses).toHaveBeenCalledWith([123, 456], 5, false, false);
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"status": "completed"'));
   });
 
@@ -163,7 +163,7 @@ describe('ai-cli app', () => {
     );
 
     expect(exitCode).toBe(0);
-    expect(waitForProcesses).toHaveBeenCalledWith([123], undefined, true);
+    expect(waitForProcesses).toHaveBeenCalledWith([123], undefined, true, false);
   });
 
   it('rejects invalid wait timeout values', async () => {

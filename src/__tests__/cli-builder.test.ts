@@ -720,7 +720,7 @@ describe('cli-builder', () => {
         expect(cmd.agent).toBe('gemini');
         expect(cmd.args).toContain('-y');
         expect(cmd.args).toContain('--output-format');
-        expect(cmd.args).toContain('json');
+        expect(cmd.args).toContain('stream-json');
       });
 
       it('should prepend prefixArgs for CCS profile binaries', () => {
